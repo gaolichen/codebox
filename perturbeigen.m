@@ -1,37 +1,31 @@
 (* ::Package:: *)
 
-ClearAll[GlobalFlags];
-GlobalFlags["Debug"]=False;
+BeginPackage["EigenPert`"]
+EigensystemEx::usage = "Perturbatively find eigenvalues and eigenvectors of a matrix.";
 
-ClearAll[DebugInfo,DebugOn,DebugOff,IsDebugOn]
-DebugOn[]:=GlobalFlags["Debug"]=True;
-DebugOff[]:=GlobalFlags["Debug"]=False;
-IsDebugOn[]:=GlobalFlags["Debug"];
-DebugInfo[x__]:=If[IsDebugOn[],Print[x]];
+EigenVectorEx::usage = "Perturbatively calculate eigenvector corresponds to a given eigenvalue.";
 
-ClearAll[ExtractMatrix];
-Options[ExtractMatrix]={Symmetric->False};
-ExtractMatrix[poly_,x_,y_,opts:OptionsPattern[]]:=Module[{i,j,ret,arr,isSym},
-	ret={};
-	isSym=OptionValue[Symmetric];
-	For[i=1,i<= Length[x],i++,
-		arr={};
-		For[j=1,j<= Length[y],j++,
-			If[isSym && i!=j,
-				AppendTo[arr,Coefficient[poly,x[[i]]*y[[j]]]/2],
-				AppendTo[arr,Coefficient[poly,x[[i]]*y[[j]]]]
-			];
-		];
-		AppendTo[ret,arr];
-	];
+EigenvaluesEx::usage = "Perturbatively calculate eigenvalues of a matrix.";
+(*
+Examples:
+mat=IdentityMatrix[3] + {{0,x,x^2},{x,0,x^3},{x^2,x^3,0}};
+(* find eigenvalues of mat up to x^3 order. *)
+EigenvaluesEx[mat, x, 3]
 
-	Return[ret]
-];
+(* find the eigenvector of the mat corresponding to eigenvalue 1-x-x^3/2 up to x^3 order. *)
+EigenVectorEx[mat, 1-x-x^3/2, x, 3]
 
-ExtractMatrix[poly_,x_]:=ExtractMatrix[poly,x,x,Symmetric->True];
+(* Find eigenvalues and eigenvectors of mat up to x^3 order. Turn on the debug output. *)
+EigensystemEx[mat,x,3,DebugOn\[Rule]True]
+*)
 
-ClearAll[FindEigenvalues,EigenvaluesEx,LeadingTerm]
 
+Begin["Private`"]
+
+Options[DebugInfo] = {DebugOn->False};
+DebugInfo[x_String, opts:OptionsPattern[]]:=If[OptionValue[DebugOn]==True,Print[x]];
+
+ClearAll[LeadingTerm]
 LeadingTerm[poly_,var_]:=Module[{ret,list,term,i},
 	list=MonomialList[poly,var];
 	For[i=Length[list],i>0,i--,
@@ -65,12 +59,15 @@ Module[{det,term=0,roots,res={},i,val,w,isNum},
 ];
 
 ClearAll[FindEigenvalue];
+Options[FindEigenvalue]=Join[{},Options[FindEigenvalues]]
 FindEigenvalue[mat_,var_,cur_,pow_,opts:OptionsPattern[]]:=Module[{},
-	Return[FindEigenvalues[mat, var, cur, pow, pow, opts]]
+	Return[FindEigenvalues[mat, var, cur, pow, pow, FilterRules[{opts},Options[DebugInfo]]]]
 ];
 
+ClearAll[EigenvaluesEx];
+Options[EigenvaluesEx]=Join[{},Options[FindEigenvalues]]
 EigenvaluesEx[mat_,var_,order_,opts:OptionsPattern[]]:=Module[{},
-	Return[FindEigenvalues[mat,var,0,0,order,opts]]
+	Return[FindEigenvalues[mat,var,0,0,order, FilterRules[{opts},Options[DebugInfo]]]]
 ];
 
 GenCMat[dim_,order_,pre_]:=Module[{i,j,ret={},row},
@@ -230,13 +227,12 @@ CommonOrder[val1_,val2_,var_,max_]:=Module[{i},
 ];
 
 ClearAll[EigensystemEx];
-Options[EigensystemEx]={OutputDebug->False};
+Options[EigensystemEx]=Join[{}, Options[DebugInfo], Options[EigenVectorEx]];
 EigensystemEx[mat_,var_,order_,opts:OptionsPattern[]]:=Module[{dim,eigenv,maxPower,i,j,k,ch,vs={},comOrder,
 roots,eqs={},prod,allUnknowns,vecs,zeroValue={},orderToCalc},
 	dim=Length[mat];
 	maxPower=2*order;
-	If[OptionValue[OutputDebug],DebugOn[]];
-	DebugInfo["Calculating eigen values..."];
+	DebugInfo["Calculating eigen values...", FilterRules[{opts},Options[DebugInfo]]];
 	eigenv=EigenvaluesEx[mat,var,maxPower];
 
 	(* Get the zero order eigenvalues. *)
@@ -254,15 +250,15 @@ roots,eqs={},prod,allUnknowns,vecs,zeroValue={},orderToCalc},
 		]
 	];
 
-	DebugInfo["Calculating eigenvectors..."];
+	DebugInfo["Calculating eigenvectors...", FilterRules[{opts},Options[DebugInfo]]];
 	ch=ToCharacterCode["A"][[1]];
 	For[i=1,i<= Length[eigenv],i++,
-		DebugInfo["Find Eigenvector for ", eigenv[[i]]];
+		DebugInfo["Find Eigenvector for " <> ToString[eigenv[[i]]]];
 		AppendTo[vs,EigenVectorEx[mat,eigenv[[i]],var,orderToCalc[[i]],
 						NamePrefix->"Var"<>FromCharacterCode[ch+i],ReturnUnknowns->True,Normalized->True]];
 	];
 
-	DebugInfo["Orthogonalizing eigenvectors..."];
+	DebugInfo["Orthogonalizing eigenvectors...", FilterRules[{opts},Options[DebugInfo]]];
 	For[i=1,i<=dim,i++,
 		For[j=i+1,j<=dim,j++,
 			If[SameQ[zeroValue[[i]],zeroValue[[j]]],
@@ -278,7 +274,9 @@ roots,eqs={},prod,allUnknowns,vecs,zeroValue={},orderToCalc},
 	roots=SolveEquations[eqs,allUnknowns];
 	vecs=TruncateMatrix[vs[[All,1]],var,order];
 	vecs=Simplify[vecs/.roots];
-	DebugInfo["Finished calculating eigenvectors."];
-	DebugOff[];
+	DebugInfo["Finished calculating eigenvectors.", FilterRules[{opts},Options[DebugInfo]]];
 	Return[{TruncateArray[eigenv,var,order],Collect[vecs,var]}]
 ];
+End[]
+
+EndPackage[]
