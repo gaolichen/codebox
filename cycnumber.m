@@ -1,5 +1,28 @@
 (* ::Package:: *)
 
+BeginPackage["CycNumber`"]
+
+InitCnBase::usage = "Prepare independent basis of cyclomotic number.";
+SimplifyCN::usage = "Simplify calculation result of cyclomotic number.";
+
+(*
+Examples:
+
+(*parepare independent basis of 7-rank cyclomotic number.*)
+InitCnBase[7];
+
+(* two cyclomotic numbers. *)
+cn1=1+4/5et^2+et^3;
+cn2=4-et^3+3*et^5;
+
+(* calculate cn1/cn2. *)
+SimplifyCN[cn1/cn2,et,7]
+
+*)
+
+
+Begin["Private`"]
+
 (* initialize the cyclic number base. *)
 ClearAll[vars,eqs];
 ClearAll[CnRelation,CnFreeVarNumber];
@@ -144,9 +167,6 @@ SimplifyCN[cn_,var_,n_]:=Module[{num,denor,ret},
 	ret = Simplify[CnTimes[num, InverseCn[denor,n],n]];
 	Return[ListToCn[ret, var]];
 ];
-
-ClearAll[SimplifyCnMat];
-SimplifyCnMat[mat_,var_,n_]:=Table[SimplifyCN[mat[[i]],var,n],{i,1,Length[mat]}];
 
 ClearAll[FullSimplifyCoef];
 FullSimplifyCoef[poly_,var_]:=Module[{ret=0,i,e},
@@ -331,3 +351,7 @@ DiagonalizeMatrixCN[mat_List,valList_List,var_Symbol, n_Integer,opts:OptionsPatt
 	right=Transpose[right];
 	Return[{left,right}]
 ];
+
+End[]
+
+EndPackage[]
